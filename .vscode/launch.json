@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "name": "GDB Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/kernel/kernel",
+            "miDebuggerServerAddress": "localhost:1234",
+            "cwd": "${workspaceRoot}",
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/riscv64-linux-gnu-gdb"
+        },
+        {
+            "name": "LLDB Launch",
+            "type": "lldb",
+            "request": "custom",
+            "targetCreateCommands": [
+                "target create ${workspaceFolder}/kernel/kernel"
+            ],
+            "processCreateCommands": ["gdb-remote localhost:1234"]
+        }
+    ],
+    "version": "2.0.0"
+}
