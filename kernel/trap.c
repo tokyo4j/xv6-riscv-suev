@@ -108,7 +108,7 @@ void usertrapret(void) {
   w_sepc(p->trapframe->epc);
 
   // tell trampoline.S the user page table to switch to.
-  uint64 satp = MAKE_SATP(p->pagetable);
+  uint64 satp = MAKE_ATP(p->pagetable);
 
   // jump to userret in trampoline.S at the top of memory, which
   // switches to the user page table, restores user registers,
@@ -129,6 +129,11 @@ void kerneltrap() {
     panic("kerneltrap: not from supervisor mode");
   if (intr_get() != 0)
     panic("kerneltrap: interrupts enabled");
+
+  if (!(scause & (1UL << 63)) && (scause & ~(1UL << 8))) {
+    printf("sepc=%p\n", r_sepc());
+    panic("non-ecall exception in supervisor mode");
+  }
 
   if ((which_dev = devintr()) == 0) {
     printf("scause %p\n", scause);

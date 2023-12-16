@@ -1,5 +1,8 @@
 #pragma once
 
+#include <ctype.h>
+#include <stdbool.h>
+
 typedef unsigned int uint;
 typedef unsigned short ushort;
 typedef unsigned char uchar;

@@ -32,8 +32,8 @@ void start() {
   w_satp(0);
 
   // delegate all interrupts and exceptions to supervisor mode.
-  w_medeleg(0xffff);
-  w_mideleg(0xffff);
+  w_medeleg(0xffffffff);
+  w_mideleg(0xffffffff);
   w_sie(r_sie() | SIE_SEIE | SIE_STIE | SIE_SSIE);
 
   // configure Physical Memory Protection to give supervisor mode
@@ -47,6 +47,8 @@ void start() {
   // keep each CPU's hartid in its tp register, for cpuid().
   int id = r_mhartid();
   w_tp(id);
+
+  w_mie(0L); // disable all interrupts temporarily
 
   // switch to supervisor mode and jump to main().
   asm volatile("mret");

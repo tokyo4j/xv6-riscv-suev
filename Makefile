@@ -30,10 +30,11 @@ OBJS = \
   $K/sysfile.o \
   $K/kernelvec.o \
   $K/plic.o \
-  $K/virtio_disk.o
+  $K/virtio_disk.o \
+  $K/suev.o
 
-#QEMU = gdbserver :1234 ../qemu/build/qemu-system-riscv64
-QEMU = qemu-system-riscv64
+#QEMU = gdbserver :2345 ../qemu/build/qemu-system-riscv64
+QEMU = ../qemu/build/qemu-system-riscv64
 
 CC = riscv64-linux-gnu-gcc
 AS = riscv64-linux-gnu-as
@@ -41,7 +42,8 @@ LD = riscv64-linux-gnu-ld
 OBJCOPY = riscv64-linux-gnu-objcopy
 OBJDUMP = riscv64-linux-gnu-objdump
 
-CFLAGS = -O -fno-omit-frame-pointer -ggdb -gdwarf-2 -Wall
+CFLAGS = -O0 -ggdb -fno-omit-frame-pointer -Wall
+CFLAGS += -Werror=implicit-function-declaration
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany
 CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
@@ -55,13 +57,22 @@ endif
 LDFLAGS = -z max-page-size=4096
 
 ifneq ($(MEMFS), y)
-$K/kernel: $(OBJS) $K/kernel.ld $U/initcode
+$K/kernel: $(OBJS) $K/kernel.ld $K/vm/kernel.img.o
 	$(LD) $(LDFLAGS) -T $K/kernel.ld -o $K/kernel $(OBJS)
 else
-$K/kernel: $(OBJS) $K/kernel.ld $U/initcode fs.img
-	$(LD) -r -b binary -o fs.img.o fs.img
-	$(LD) $(LDFLAGS) -T $K/kernel.ld -o $K/kernel $(OBJS) fs.img.o
+$K/kernel: $(OBJS) $K/kernel.ld $K/vm/kernel.img.o fs.img.o
+	$(LD) $(LDFLAGS) -T $K/kernel.ld -o $K/kernel $(OBJS) $K/vm/kernel.img.o fs.img.o
 endif
+
+fs.img.o: fs.img
+	$(LD) -r -b binary -o $@ $<
+
+$K/vm/kernel.out: $K/vm/kernel.o $K/vm/kernel.ld
+	$(LD) $(LDFLAGS) -T $K/vm/kernel.ld -o $@ $<
+$K/vm/kernel.img: $K/vm/kernel.out
+	$(OBJCOPY) -S -O binary $< $@
+$K/vm/kernel.img.o: $K/vm/kernel.img
+	$(OBJCOPY) -I binary -O elf64-littleriscv --set-section-alignment .data=4096 $< $@
 
 $U/initcode: $U/initcode.S
 	$(CC) $(CFLAGS) -march=rv64g -nostdinc -I. -Ikernel -c $U/initcode.S -o $U/initcode.o
@@ -115,19 +126,20 @@ fs.img: mkfs/mkfs README $(UPROGS)
 -include kernel/*.d user/*.d
 
 clean:
-	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
-	*/*.o */*.d */*.asm */*.sym \
-	$U/initcode $U/initcode.out $K/kernel fs.img \
-	mkfs/mkfs .gdbinit \
-        $U/usys.S \
-	$(UPROGS)
+	find -iname '*.img' -o \
+				-iname '*.o' -o \
+				-iname '*.out' -o \
+				-iname '*.d' | xargs rm -f
+	rm -f $U/initcode $K/kernel $K/vm/kernel fs.img \
+				mkfs/mkfs .gdbinit \
+        $U/usys.S $(UPROGS)
 
 QEMUGDB = -s -S
 ifndef CPUS
 CPUS := 1
 endif
 
-QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
+QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 256M -smp $(CPUS) -nographic
 ifneq ($(MEMFS), y)
 QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0

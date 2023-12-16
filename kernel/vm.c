@@ -12,6 +12,8 @@
 pagetable_t kernel_pagetable;
 
 extern char etext[]; // kernel.ld sets this to end of kernel code.
+extern char end[];
+extern char heap[];
 
 extern char trampoline[]; // trampoline.S
 
@@ -57,7 +59,7 @@ void kvminithart() {
   // wait for any previous writes to the page table memory to finish.
   sfence_vma();
 
-  w_satp(MAKE_SATP(kernel_pagetable));
+  w_satp(MAKE_ATP(kernel_pagetable));
 
   // flush stale entries from the TLB.
   sfence_vma();
@@ -117,7 +119,7 @@ uint64 walkaddr(pagetable_t pagetable, uint64 va) {
 // add a mapping to the kernel page table.
 // only used when booting.
 // does not flush TLB or enable paging.
-void kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, int perm) {
+void kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, uint64 perm) {
   if (mappages(kpgtbl, va, sz, pa, perm) != 0)
     panic("kvmmap");
 }
@@ -127,7 +129,7 @@ void kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, int perm) {
 // be page-aligned. Returns 0 on success, -1 if walk() couldn't
 // allocate a needed page-table page.
 int mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa,
-             int perm) {
+             uint64 perm) {
   uint64 a, last;
   pte_t *pte;
 
@@ -165,7 +167,7 @@ void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free) {
       panic("uvmunmap: walk");
     if ((*pte & PTE_V) == 0)
       panic("uvmunmap: not mapped");
-    if (PTE_FLAGS(*pte) == PTE_V)
+    if ((*pte & PTE_FLAGS) == PTE_V)
       panic("uvmunmap: not a leaf");
     if (do_free) {
       uint64 pa = PTE2PA(*pte);
@@ -287,7 +289,7 @@ int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz) {
     if ((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
-    flags = PTE_FLAGS(*pte);
+    flags = *pte & PTE_FLAGS;
     if ((mem = kalloc()) == 0)
       goto err;
     memmove(mem, (char *)pa, PGSIZE);
