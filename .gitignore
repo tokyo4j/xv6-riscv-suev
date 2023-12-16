@@ -5,11 +5,11 @@ _*
 *.asm
 *.sym
 *.img
+*.out
 vectors.S
 bootblock
 entryother
 initcode
-initcode.out
 kernelmemfs
 mkfs/mkfs
 kernel/kernel

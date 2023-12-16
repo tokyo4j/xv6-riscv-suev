@@ -26,21 +26,15 @@
 #define MIE_MTIE (1L << 7)  // timer
 #define MIE_MSIE (1L << 3)  // software
 
-// use riscv's sv39 page table scheme.
-#define ATP_SV39 (8L << 60)
-
-#define MAKE_ATP(pagetable) (ATP_SV39 | (((uint64)pagetable) >> 12))
-#define ATP2PT(apt) ((uint64)(ATP) << 12)
-
 #define HSTATUS_SPV (1L << 7)
 
 #define DEFINE_CSR(csr_name)                                                   \
-  static inline __attribute__((always_inline)) uint64 r_##csr_name() {         \
+  static inline __always_inline uint64 r_##csr_name() {                        \
     uint64 x;                                                                  \
     asm volatile("csrr %0," #csr_name : "=r"(x));                              \
     return x;                                                                  \
   }                                                                            \
-  static inline __attribute__((always_inline)) void w_##csr_name(uint64 x) {   \
+  static inline __always_inline void w_##csr_name(uint64 x) {                  \
     asm volatile("csrw " #csr_name ", %0" : : "r"(x));                         \
   }
 
@@ -79,12 +73,12 @@ static inline int intr_get() {
 }
 
 #define DEFINE_GPR(gpr_name)                                                   \
-  static inline __attribute__((always_inline)) uint64 r_##gpr_name() {         \
+  static inline __always_inline uint64 r_##gpr_name() {                        \
     uint64 x;                                                                  \
     asm volatile("mv %0," #gpr_name : "=r"(x));                                \
     return x;                                                                  \
   }                                                                            \
-  static inline __attribute__((always_inline)) void w_##gpr_name(uint64 x) {   \
+  static inline __always_inline void w_##gpr_name(uint64 x) {                  \
     asm volatile("mv " #gpr_name ", %0" : : "r"(x));                           \
   }
 DEFINE_GPR(sp)
@@ -92,7 +86,7 @@ DEFINE_GPR(tp)
 DEFINE_GPR(ra)
 
 // flush the TLB.
-static inline void sfence_vma() {
+static __always_inline void sfence_vma() {
   // the zero, zero means flush all TLB entries.
   asm volatile("sfence.vma zero, zero");
 }
@@ -108,18 +102,29 @@ typedef uint64 *pagetable_t; // 512 PTEs
 #define PGROUNDUP(sz) (((sz) + PGSIZE - 1) & ~(PGSIZE - 1))
 #define PGROUNDDOWN(a) (((a)) & ~(PGSIZE - 1))
 
-#define PTE_V (1L << 0) // valid
-#define PTE_R (1L << 1)
-#define PTE_W (1L << 2)
-#define PTE_X (1L << 3)
-#define PTE_U (1L << 4) // user can access
+// clang-format off
+#define PTE_V         0x0000000000000001UL // valid
+#define PTE_R         0x0000000000000002UL
+#define PTE_W         0x0000000000000004UL
+#define PTE_X         0x0000000000000008UL
+#define PTE_U         0x0000000000000010UL // user can access
+#define PTE_FLAGS     0x00000000000003ffUL
+#define PTE_PPN       0x07fffffffffffc00UL
+#define PTE_PRIVATE   0x0800000000000000UL
+#define PTE_MERGEABLE 0x1000000000000000UL
+#define PTE_RMPE_TYPE 0x1800000000000000UL
+// clang-format on
+
+// use riscv's sv39 page table scheme.
+#define ATP_SV39 (8L << 60)
+
+#define MAKE_ATP(pagetable) (ATP_SV39 | (((uint64)pagetable) >> 12))
+#define ATP2PT(apt) ((pagetable_t)(((uint64)(apt) & ((1UL << 44) - 1)) << 12))
 
 // shift a physical address to the right place for a PTE.
 #define PA2PTE(pa) ((((uint64)pa) >> 12) << 10)
 
-#define PTE2PA(pte) (((pte) >> 10) << 12)
-
-#define PTE_FLAGS(pte) ((pte)&0x3FF)
+#define PTE2PA(pte) (((pte)&PTE_PPN) << 2)
 
 // extract the three 9-bit page table indices from a virtual address.
 #define PXMASK 0x1FF // 9 bits

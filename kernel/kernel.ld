@@ -42,4 +42,21 @@ SECTIONS
   }
 
   PROVIDE(end = .);
+
+  . = ALIGN(0x1000);
+  .rmp : {
+    _rmp_start = .;
+    . += 16*1024*1024; /* 16M RMP covers 0-4GB physical memory */
+    _rmp_size = ABSOLUTE(. - _rmp_start);
+  }
+
+  . = ALIGN(0x1000);
+  .vm : {
+    _vm_start = .;
+    . += 64*64*4096;
+    _vm_size = ABSOLUTE(. - _vm_start);
+  }
+
+  . = ALIGN(0x1000);
+  PROVIDE(heap = .);
 }

@@ -48,9 +48,15 @@ extern struct cpu cpus[NCPU];
 // return-to-user path via usertrapret() doesn't return through
 // the entire kernel call stack.
 struct trapframe {
-  /*   0 */ uint64 kernel_satp;   // kernel page table
-  /*   8 */ uint64 kernel_sp;     // top of process's kernel stack
-  /*  16 */ uint64 kernel_trap;   // usertrap()
+  union {
+    /* 0 */ uint64 kernel_satp; // kernel page table
+    /* 0 */ uint64 vsatp;
+  };
+  /*   8 */ uint64 kernel_sp; // top of process's kernel stack
+  union {
+    /* 16 */ uint64 kernel_trap; // usertrap()
+    /* 16 */ uint64 hgatp;
+  };
   /*  24 */ uint64 epc;           // saved user program counter
   /*  32 */ uint64 kernel_hartid; // saved kernel tp
   /*  40 */ uint64 ra;

@@ -25,7 +25,8 @@ struct {
 
 void kinit() {
   initlock(&kmem.lock, "kmem");
-  freerange(end, (void *)PHYSTOP);
+  extern char heap[];
+  freerange(heap, (void *)PHYSTOP);
 }
 
 void freerange(void *pa_start, void *pa_end) {
